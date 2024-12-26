@@ -89,6 +89,7 @@ export const App: React.FC = () => {
       setErrorMessage('Title should not be empty');
 
       setTimeout(() => setErrorMessage(''), 3000);
+
       return;
     }
 
