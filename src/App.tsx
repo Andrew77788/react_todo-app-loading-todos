@@ -13,6 +13,7 @@ export enum FilterType {
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [todosG, setTodosG] = useState<Todo[]>([]);
   const [completed, setCompleted] = useState<boolean>(true);
   const [todo, setTodo] = useState('');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -54,6 +55,7 @@ export const App: React.FC = () => {
     const fetchTodos = () => {
       getTodos()
         .then(todosList => {
+          setTodosG(todosList);
           switch (filter) {
             case FilterType.Active:
               setTodos(todosList.filter(tod => !tod.completed));
@@ -228,7 +230,7 @@ export const App: React.FC = () => {
             </div>
           ))}
         </section>
-        {todos.length > 0 && (
+        {todosG.length > 0 && (
           <footer className="todoapp__footer" data-cy="Footer">
             <span className="todo-count" data-cy="TodosCounter">
               {todos.filter(tod => !tod.completed).length} items left
