@@ -7,18 +7,15 @@ import { client } from './utils/fetchClient';
 import { ErrorMessage } from './componens/errorMessage';
 
 export enum FilterType {
-  All = 'all',
   Active = 'active',
   Completed = 'completed',
 }
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [todosG, setTodosG] = useState<Todo[]>([]);
-  const [completed, setCompleted] = useState<boolean>(true);
   const [todo, setTodo] = useState('');
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [filter, setFilter] = useState<string>(FilterType.All);
+  const [filter, setFilter] = useState<FilterType | null>(null);
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState<string>('');
@@ -30,18 +27,7 @@ export const App: React.FC = () => {
     const fetchTodos = () => {
       getTodos()
         .then(todosList => {
-          setTodosG(todosList);
-          switch (filter) {
-            case FilterType.Active:
-              setTodos(todosList.filter(tod => !tod.completed));
-              break;
-            case FilterType.Completed:
-              setTodos(todosList.filter(tod => tod.completed));
-              break;
-            default:
-              setTodos(todosList);
-              break;
-          }
+          setTodos(todosList);
         })
         .catch(() => {
           setErrorMessage('Unable to load todos');
@@ -50,15 +36,22 @@ export const App: React.FC = () => {
     };
 
     fetchTodos();
-  }, [filter]);
+  }, []);
 
-  useEffect(() => {
-    if (todos.filter(tod => !tod.completed).length === todos.length) {
-      setCompleted(true);
-    } else {
-      setCompleted(false);
+  const filteredTodos = todos.filter(tod => {
+    if (filter === FilterType.Active) {
+      return !tod.completed;
     }
-  }, [todos]);
+
+    if (filter === FilterType.Completed) {
+      return tod.completed;
+    }
+
+    return true;
+  });
+
+  const isCompleted =
+    todos.filter(tod => !tod.completed).length === todos.length;
 
   const addTodo = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -199,7 +192,7 @@ export const App: React.FC = () => {
         </header>
 
         <section className="todoapp__main" data-cy="TodoList">
-          {todos.map(todoItem => (
+          {filteredTodos.map(todoItem => (
             <div
               data-cy="Todo"
               className={`todo ${todoItem.completed ? 'completed' : ''}`}
@@ -238,7 +231,7 @@ export const App: React.FC = () => {
                   className="todo__title"
                   onDoubleClick={() => handleDoubleClick(todoItem)}
                   style={{
-                    opacity: loadingTodoId === todoItem.id ? 0.5 : 1, // Прозорість лише для видаленого елемента
+                    opacity: loadingTodoId === todoItem.id ? 0.5 : 1,
                   }}
                 >
                   {todoItem.title}
@@ -256,7 +249,7 @@ export const App: React.FC = () => {
             </div>
           ))}
         </section>
-        {todosG.length > 0 && (
+        {todos.length > 0 && (
           <footer className="todoapp__footer" data-cy="Footer">
             <span className="todo-count" data-cy="TodosCounter">
               {todos.filter(tod => !tod.completed).length} items left
@@ -265,9 +258,9 @@ export const App: React.FC = () => {
             <nav className="filter" data-cy="Filter">
               <a
                 href="#/"
-                className={`filter__link ${filter === FilterType.All ? 'selected' : ''}`}
+                className={`filter__link ${filter === null ? 'selected' : ''}`}
                 data-cy="FilterLinkAll"
-                onClick={() => setFilter(FilterType.All)}
+                onClick={() => setFilter(null)}
               >
                 All
               </a>
@@ -296,7 +289,7 @@ export const App: React.FC = () => {
               className="todoapp__clear-completed"
               data-cy="ClearCompletedButton"
               onClick={ClearCompleted}
-              disabled={completed}
+              disabled={isCompleted}
             >
               Clear completed
             </button>
