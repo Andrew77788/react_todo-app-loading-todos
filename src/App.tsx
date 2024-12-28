@@ -4,6 +4,7 @@ import React, { FormEvent, useEffect, useState } from 'react';
 import { USER_ID, getTodos, postTodo, updateTodo } from './api/todos';
 import { Todo } from './types/Todo';
 import { client } from './utils/fetchClient';
+import { ErrorMessage } from './componens/errorMessage';
 
 export enum FilterType {
   All = 'all',
@@ -22,34 +23,8 @@ export const App: React.FC = () => {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newTitle, setNewTitle] = useState<string>('');
 
-  const handleDoubleClick = (todoItem: Todo) => {
-    setNewTitle(todoItem.title);
-    setEditingId(todoItem.id);
-  };
-
-  const handleBlur = (todoItem: Todo) => {
-    setEditingId(null);
-
-    updateTodo({
-      id: todoItem.id,
-      completed: todoItem.completed,
-      userId: todoItem.userId,
-      title: newTitle,
-    })
-      .then(updatedTodo => {
-        setTodos(prevTodos =>
-          prevTodos.map(t => (t.id === updatedTodo.id ? updatedTodo : t)),
-        );
-      })
-      .catch(() => {
-        setErrorMessage('Unable to update a todo');
-        setTimeout(() => setErrorMessage(''), 3000);
-      });
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewTitle(e.target.value);
-  };
+  const [loadingTodoId, setLoadingTodoId] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchTodos = () => {
@@ -87,6 +62,7 @@ export const App: React.FC = () => {
 
   const addTodo = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
     if (!todo.trim()) {
       setErrorMessage('Title should not be empty');
 
@@ -94,6 +70,8 @@ export const App: React.FC = () => {
 
       return;
     }
+
+    setIsLoading(true);
 
     postTodo({
       userId: USER_ID,
@@ -103,14 +81,19 @@ export const App: React.FC = () => {
       .then(newTodo => {
         setTodos(prev => [...prev, newTodo]);
         setTodo('');
+        setIsLoading(false);
       })
       .catch(() => {
         setErrorMessage('Unable to add a todo');
         setTimeout(() => setErrorMessage(''), 3000);
+      })
+      .finally(() => {
+        setIsLoading(false); // Вимкнути стан додавання
       });
   };
 
   const deleteTodoHandler = (todoId: number) => {
+    setLoadingTodoId(todoId);
     client
       .delete(`/todos/${todoId}`)
       .then(() => {
@@ -120,6 +103,35 @@ export const App: React.FC = () => {
         setErrorMessage('Unable to delete a todo');
         setTimeout(() => setErrorMessage(''), 3000);
       });
+  };
+
+  const handleDoubleClick = (todoItem: Todo) => {
+    setNewTitle(todoItem.title);
+    setEditingId(todoItem.id);
+  };
+
+  const handleBlur = (todoItem: Todo) => {
+    setEditingId(null);
+
+    updateTodo({
+      id: todoItem.id,
+      completed: todoItem.completed,
+      userId: todoItem.userId,
+      title: newTitle,
+    })
+      .then(updatedTodo => {
+        setTodos(prevTodos =>
+          prevTodos.map(t => (t.id === updatedTodo.id ? updatedTodo : t)),
+        );
+      })
+      .catch(() => {
+        setErrorMessage('Unable to update a todo');
+        setTimeout(() => setErrorMessage(''), 3000);
+      });
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewTitle(e.target.value);
   };
 
   const handleKeyDown = (
@@ -134,6 +146,7 @@ export const App: React.FC = () => {
   };
 
   const updateCompleted = (todoItem: Todo) => {
+    setLoadingTodoId(todoItem.id);
     updateTodo({
       id: todoItem.id,
       completed: !todoItem.completed,
@@ -148,6 +161,9 @@ export const App: React.FC = () => {
       .catch(() => {
         setErrorMessage('Unable to update a todo');
         setTimeout(() => setErrorMessage(''), 3000);
+      })
+      .finally(() => {
+        setLoadingTodoId(null); // Зняти стан завантаження
       });
   };
 
@@ -177,6 +193,7 @@ export const App: React.FC = () => {
               placeholder="What needs to be done?"
               value={todo}
               onChange={e => setTodo(e.target.value)}
+              autoFocus
             />
           </form>
         </header>
@@ -187,6 +204,12 @@ export const App: React.FC = () => {
               data-cy="Todo"
               className={`todo ${todoItem.completed ? 'completed' : ''}`}
               key={todoItem.id}
+              style={{
+                opacity:
+                  isLoading && todoItem.id === todos[todos.length - 1]?.id
+                    ? 0.5
+                    : 1, // Прозорість для нового елемента
+              }}
             >
               <label className="todo__status-label">
                 <input
@@ -214,6 +237,9 @@ export const App: React.FC = () => {
                   data-cy="TodoTitle"
                   className="todo__title"
                   onDoubleClick={() => handleDoubleClick(todoItem)}
+                  style={{
+                    opacity: loadingTodoId === todoItem.id ? 0.5 : 1, // Прозорість лише для видаленого елемента
+                  }}
                 >
                   {todoItem.title}
                 </span>
@@ -269,7 +295,7 @@ export const App: React.FC = () => {
               type="button"
               className="todoapp__clear-completed"
               data-cy="ClearCompletedButton"
-              onClick={() => ClearCompleted()}
+              onClick={ClearCompleted}
               disabled={completed}
             >
               Clear completed
@@ -277,22 +303,10 @@ export const App: React.FC = () => {
           </footer>
         )}
       </div>
-
-      {errorMessage && (
-        <div
-          data-cy="ErrorNotification"
-          className="notification is-danger is-light has-text-weight-normal"
-        >
-          <button
-            data-cy="HideErrorButton"
-            type="button"
-            className="delete"
-            onClick={() => setErrorMessage('')}
-          />
-
-          {errorMessage}
-        </div>
-      )}
+      <ErrorMessage
+        errorMessage={errorMessage}
+        setErrorMessage={setErrorMessage}
+      />
     </div>
   );
 };
